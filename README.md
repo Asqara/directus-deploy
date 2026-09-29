@@ -30,7 +30,7 @@
 
 | Nama | NIM | Peran |
 |---|---|---|
-| _Nama Anggota 1_ | _G64xxxxxxx_ | Instalasi server & deployment |
+| Alfath Asqar Tsani | M0403241019 | Instalasi server & deployment |
 | _Nama Anggota 2_ | _G64xxxxxxx_ | Dokumentasi & konten |
 | _Nama Anggota 3_ | _G64xxxxxxx_ | Pembahasan & perbandingan |
 
