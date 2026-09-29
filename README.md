@@ -337,7 +337,8 @@ Salin konfigurasi yang sudah disediakan:
 ```bash
 sudo cp nginx/cms.asqara.tech.conf /etc/nginx/sites-available/cms.asqara.tech
 sudo ln -s /etc/nginx/sites-available/cms.asqara.tech /etc/nginx/sites-enabled/
-sudo nginx -t              # uji konfigurasi, harus "syntax is ok"
+sudo nginx -t                      # uji konfigurasi, harus "syntax is ok"
+sudo systemctl enable --now nginx  # pastikan Nginx menyala & otomatis jalan saat boot
 sudo systemctl reload nginx
 ```
 
@@ -838,6 +839,7 @@ Tidak perlu restart apa pun, perubahan langsung berlaku.
 | Gejala | Penyebab | Solusi |
 |---|---|---|
 | **502 Bad Gateway** | Container Directus mati / belum siap | `docker compose ps` lalu `docker compose logs directus` |
+| `nginx.service is not active` / Nginx gagal start | Port 80/443 sudah dipakai program lain (sering: **Apache**) | Cek `sudo ss -tlnp \| grep -E ':80\|:443'`, lalu matikan, mis. `sudo systemctl disable --now apache2`, kemudian `sudo systemctl enable --now nginx` |
 | Upload gagal, error `EACCES` | Folder `uploads` bukan milik UID 1000 | `sudo chown -R 1000:1000 uploads extensions` |
 | Upload gagal, error **413** | File melebihi batas Nginx | Naikkan `client_max_body_size` di Nginx & `FILES_MAX_UPLOAD_SIZE` di `.env` |
 | Certbot gagal (`NXDOMAIN` / *timeout*) | DNS belum mengarah / port 80 tertutup | Cek `nslookup`, matikan proxy Cloudflare, buka port 80 |

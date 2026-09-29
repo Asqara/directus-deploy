@@ -88,7 +88,19 @@ langkah "5/6 Mengonfigurasi Nginx untuk ${DOMAIN}"
 sed "s/cms\.asqara\.tech/${DOMAIN}/g" nginx/cms.asqara.tech.conf > "/etc/nginx/sites-available/${DOMAIN}"
 ln -sf "/etc/nginx/sites-available/${DOMAIN}" "/etc/nginx/sites-enabled/${DOMAIN}"
 nginx -t
-systemctl reload nginx
+if systemctl is-active --quiet nginx; then
+  systemctl reload nginx
+else
+  # Nginx belum jalan. Penyebab paling umum: port 80/443 sudah dipakai program lain.
+  BENTROK="$(ss -Htlnp '( sport = :80 or sport = :443 )' | grep -v nginx || true)"
+  if [ -n "$BENTROK" ]; then
+    merah "Nginx tidak bisa jalan karena port 80/443 sudah dipakai program lain:"
+    echo "$BENTROK"
+    kuning "Hentikan program tersebut (mis. sudo systemctl disable --now apache2), lalu jalankan ulang setup.sh."
+    exit 1
+  fi
+  systemctl enable --now nginx
+fi
 
 # Buka port web jika firewall UFW aktif (tidak mengaktifkan UFW otomatis)
 if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
