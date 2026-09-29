@@ -41,7 +41,7 @@
 Punya server Ubuntu dan domain yang sudah diarahkan ke IP server? Cukup **3 perintah**:
 
 ```bash
-git clone https://github.com/<username>/directus-installation.git /opt/directus
+git clone https://github.com/asqara/directus-deploy.git /opt/directus
 cd /opt/directus
 sudo DOMAIN=cms.asqara.tech EMAIL=admin@asqara.tech ./setup.sh
 ```
@@ -225,7 +225,7 @@ Docker Compose version v2.x.x
 ## Langkah 4 — Unduh Konfigurasi dari Repository Ini
 
 ```bash
-sudo git clone https://github.com/<username>/directus-installation.git /opt/directus
+sudo git clone https://github.com/asqara/directus-deploy.git /opt/directus
 sudo chown -R $USER:$USER /opt/directus
 cd /opt/directus
 ```
@@ -233,7 +233,7 @@ cd /opt/directus
 Isi repository:
 
 ```
-directus-installation/
+directus-deploy/
 ├── docker-compose.yml        ← definisi 3 container (Directus, PostgreSQL, Redis)
 ├── .env.example              ← contoh konfigurasi (disalin jadi .env)
 ├── setup.sh                  ← instalasi otomatis 1 perintah
