@@ -21,8 +21,8 @@
   <img src="docs/images/03-content-articles.png" alt="Tampilan Directus" width="850">
 </p>
 
-[Sekilas Tentang](#sekilas-tentang) | [Instalasi](#instalasi) | [Konfigurasi](#konfigurasi) | [Otomatisasi](#otomatisasi) | [Cara Pemakaian](#cara-pemakaian) | [Maintenance](#maintenance) | [Pembahasan](#pembahasan) | [Referensi](#referensi)
-:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:
+[Sekilas Tentang](#sekilas-tentang) | [Instalasi](#instalasi) | [Tunnel](#tunnel) | [Konfigurasi](#konfigurasi) | [Otomatisasi](#otomatisasi) | [Cara Pemakaian](#cara-pemakaian) | [Maintenance](#maintenance) | [Pembahasan](#pembahasan) | [Referensi](#referensi)
+:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:
 
 ---
 
@@ -130,7 +130,7 @@ flowchart LR
 | RAM | 1 GB | 2 GB+ | 16GB |
 | Penyimpanan | 10 GB | 20 GB+ (tergantung jumlah file upload) | 256GB |
 | Domain | Opsional (bisa pakai IP) | Subdomain + HTTPS | `cms.asqara.tech` |
-| Port terbuka | 22 (SSH), 80 (HTTP) | 22, 80, 443 | 22, 80, 443 |
+| Port terbuka | 22 (SSH), 80 (HTTP) | 22, 80, 443 — atau **0 port** via [Cloudflare Tunnel](#tunnel) | Cloudflare Tunnel (0 port) |
 
 > [!NOTE]
 > Tidak perlu menginstal Node.js, PostgreSQL, atau Redis secara manual. Semuanya sudah dibungkus di dalam **Docker**.
@@ -147,6 +147,9 @@ Buka panel pengelola domain (mis. Cloudflare, Niagahoster, Namecheap, dsb.), lal
 
 > [!IMPORTANT]
 > Jika memakai **Cloudflare**, set *Proxy status* ke **DNS only** (awan abu-abu) dulu sampai sertifikat HTTPS berhasil dibuat di Langkah 8. Setelah itu boleh diaktifkan kembali dengan mode SSL **Full (strict)**.
+
+> [!TIP]
+> **Server di rumah/lab di belakang router (mis. IndiHome) dan tidak punya IP publik?** Lewati Langkah 0 & 8 ini, dan pakai [🌩️ Deploy dengan Cloudflare Tunnel](#tunnel) — cara yang kami pakai untuk `cms.asqara.tech`.
 
 ✅ **Cek:** dari laptop, jalankan perintah berikut. Hasilnya harus IP server kamu.
 
@@ -431,6 +434,134 @@ Saat pertama login, Directus 12 akan menampilkan **dua dialog**:
 > **Segera ganti password admin** setelah login pertama: klik ikon profil di kiri bawah → ubah **Password** → **Simpan**.
 
 ✅ **Instalasi selesai!** Lanjut ke [Cara Pemakaian](#cara-pemakaian) untuk mulai mengisi konten.
+
+---
+
+<a id="tunnel"></a>
+
+## 🌩️ Deploy dengan Cloudflare Tunnel (Server di Belakang NAT / IndiHome)
+
+> [!NOTE]
+> **Inilah cara yang benar-benar kami pakai untuk `cms.asqara.tech`.** Ikuti bagian ini **sebagai pengganti Langkah 0 dan Langkah 8** jika servermu berada di rumah/lab di belakang router dan **tidak** punya IP publik yang bisa di-*port forward*.
+
+### 🤔 Kenapa perlu tunnel?
+
+Server kami berada di jaringan rumah dengan susunan **double NAT**: server ada di belakang **router TP-Link**, dan router itu sendiri ada di belakang **modem IndiHome**. Akibatnya:
+
+```mermaid
+flowchart LR
+    NET[🌍 Internet] -->|port 80/443 ❌ tersaring| MODEM[📡 Modem IndiHome<br>192.168.100.1]
+    MODEM --> TPLINK[📶 Router TP-Link<br>192.168.0.1]
+    TPLINK --> SRV[🖥️ Server<br>192.168.0.104]
+    style NET fill:#f9d5d5
+```
+
+- IP yang didapat server (`192.168.0.104`) adalah **IP lokal**, tidak bisa diakses dari internet.
+- **Port forwarding gagal** karena harus diatur di **dua perangkat**, dan modem IndiHome sering terkunci (butuh akun admin yang dipegang Telkom).
+
+**Cloudflare Tunnel** menyelesaikan ini tanpa menyentuh router/modem sama sekali: server membuat koneksi **keluar** ke Cloudflare, lalu semua pengunjung dialirkan lewat koneksi itu.
+
+```mermaid
+flowchart LR
+    U[👤 Pengunjung] -->|HTTPS| CF[☁️ Cloudflare]
+    CF -.->|koneksi keluar<br>dari server| CFD[🔌 cloudflared<br>di server]
+    CFD --> NG[🟩 Nginx :80]
+    NG --> D[🐰 Directus :8055]
+```
+
+| Kelebihan | |
+|---|---|
+| ✅ Tidak butuh IP publik | Lolos dari CGNAT & double NAT |
+| ✅ Tidak menyentuh router/modem | Tidak perlu port forwarding sama sekali |
+| ✅ HTTPS otomatis dari Cloudflare | **Certbot / Langkah 8 tidak dipakai** |
+| ✅ Gratis | Cukup punya domain yang name server-nya di Cloudflare |
+
+### Langkah 1 — Hapus A record lama
+
+Di **Cloudflare → DNS → Records**, **hapus** A record `cms` yang mengarah ke IP lokal/publik. Tunnel akan membuat record-nya sendiri secara otomatis (kalau dibiarkan, keduanya bentrok).
+
+### Langkah 2 — Buat tunnel di dashboard
+
+1. Buka **Cloudflare dashboard → Zero Trust → Networks → Tunnels → Create a tunnel**.
+2. Pilih **Cloudflared** → beri nama (mis. `asqara-server`) → **Save tunnel**.
+
+### Langkah 3 — Install `cloudflared` di server
+
+Pilih **Debian / 64-bit** di dashboard. Cloudflare menampilkan perintah **yang sudah berisi token unik** — jalankan apa adanya di server. Bentuknya kira-kira:
+
+```bash
+# Perintah 1: install (ambil dari dashboard)
+curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb
+sudo dpkg -i cloudflared.deb
+
+# Perintah 2: daftarkan sebagai service (TOKEN dari dashboard)
+sudo cloudflared service install <TOKEN_PANJANG_DARI_DASHBOARD>
+```
+
+Tunggu ±30 detik hingga status tunnel di dashboard menjadi **Healthy / Connected**.
+
+✅ **Cek:**
+
+```bash
+sudo systemctl status cloudflared --no-pager | head -5
+```
+
+### Langkah 4 — Arahkan tunnel ke Nginx
+
+Di bagian **Public Hostname** tunnel, isi **persis** seperti ini:
+
+| Kolom | Isi | ⚠️ Catatan |
+|---|---|---|
+| Subdomain | `cms` | |
+| Domain | `asqara.tech` | |
+| Type | **HTTP** | **Jangan HTTPS** — Nginx lokal memakai HTTP biasa |
+| URL | `localhost:80` | Arahkan ke **Nginx**, bukan `8055`, agar maintenance mode & batas upload tetap berlaku |
+
+Klik **Save**.
+
+> [!WARNING]
+> Salah pilih **Type: HTTPS** di sini adalah penyebab **error 502 Bad Gateway** paling umum: cloudflared mencoba TLS ke port 80 yang HTTP biasa, lalu gagal. Pastikan **HTTP**.
+
+### Langkah 5 — Pastikan Nginx TANPA redirect HTTPS
+
+Karena HTTPS ditangani Cloudflare, Nginx cukup melayani HTTP di port 80. **Jangan jalankan certbot** pada skema ini. Jika sebelumnya sempat menjalankan certbot (Langkah 8), kembalikan konfigurasi Nginx ke versi bersih dari repo:
+
+```bash
+sudo cp nginx/cms.asqara.tech.conf /etc/nginx/sites-available/cms.asqara.tech
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+> [!WARNING]
+> **Error `ERR_TOO_MANY_REDIRECTS`?** Penyebabnya sisa aturan "paksa ke HTTPS" dari certbot. Cloudflare mengirim HTTPS → Nginx menyuruh "pindah ke HTTPS" lagi → berputar tanpa henti. Perintah di atas menghapusnya.
+
+### Langkah 6 — Set `PUBLIC_URL` & restart
+
+```bash
+# Pastikan PUBLIC_URL memakai https (alamat publik dari Cloudflare)
+grep PUBLIC_URL .env      # harus: PUBLIC_URL=https://cms.asqara.tech
+docker compose up -d
+```
+
+### ✅ Verifikasi dari internet
+
+Uji dari **HP dengan data seluler** (matikan WiFi) atau minta bantuan teman di jaringan lain:
+
+```bash
+curl -I https://cms.asqara.tech/admin          # harus: HTTP/2 200
+curl https://cms.asqara.tech/server/ping        # harus: pong
+```
+
+Buka **https://cms.asqara.tech/admin** — panel Directus kini dapat diakses dari mana saja, lengkap dengan HTTPS, **tanpa membuka satu port pun** di rumah. 🎉
+
+### 🩺 Troubleshooting Tunnel
+
+| Gejala | Penyebab | Solusi |
+|---|---|---|
+| **502 Bad Gateway** (diagram: *Cloudflare ✅, Host ❌*) | Public Hostname memakai **Type HTTPS** atau URL salah | Ubah ke **Type HTTP**, URL `localhost:80` |
+| **502**, padahal Type sudah HTTP | Nginx/Directus mati | `docker compose ps` & `sudo systemctl status nginx` |
+| **ERR_TOO_MANY_REDIRECTS** | Sisa redirect certbot di Nginx | Lihat [Langkah 5](#tunnel) di atas, lalu buka di jendela incognito |
+| Tunnel **Down** di dashboard | `cloudflared` mati | `sudo systemctl restart cloudflared`, cek `sudo journalctl -u cloudflared -n 30` |
+| Domain tak kunjung aktif | A record lama masih ada | Hapus A record `cms` yang lama di Cloudflare DNS |
 
 ---
 
