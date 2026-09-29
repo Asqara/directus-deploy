@@ -125,10 +125,10 @@ flowchart LR
 
 | Komponen | Minimum | Rekomendasi | Yang kami pakai |
 |---|---|---|---|
-| Sistem Operasi | Linux 64-bit (Ubuntu 22.04+ / Debian 12+) | Ubuntu 24.04 LTS | Ubuntu 24.04 LTS |
-| CPU | 1 vCPU | 2 vCPU | _isi sesuai server_ |
-| RAM | 1 GB | 2 GB+ | _isi sesuai server_ |
-| Penyimpanan | 10 GB | 20 GB+ (tergantung jumlah file upload) | _isi sesuai server_ |
+| Sistem Operasi | Linux 64-bit (Ubuntu 22.04+ / Debian 12+) | Ubuntu 24.04 LTS | Ubuntu 26.04 LTS |
+| CPU | 1 vCPU | 2 vCPU | 6 vCPU |
+| RAM | 1 GB | 2 GB+ | 16GB |
+| Penyimpanan | 10 GB | 20 GB+ (tergantung jumlah file upload) | 256GB |
 | Domain | Opsional (bisa pakai IP) | Subdomain + HTTPS | `cms.asqara.tech` |
 | Port terbuka | 22 (SSH), 80 (HTTP) | 22, 80, 443 | 22, 80, 443 |
 
