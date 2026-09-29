@@ -1,0 +1,10 @@
+# Rahasia
+.env
+
+# Data runtime (database, file upload, extension)
+data/
+uploads/
+extensions/
+backups/
+
+.DS_Store

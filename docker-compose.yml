@@ -1,0 +1,100 @@
+# =============================================================
+#  Directus + PostgreSQL + Redis
+#  Domain  : https://cms.asqara.tech
+#  Jalankan: docker compose up -d
+#  Semua nilai rahasia diambil dari file .env (lihat .env.example)
+# =============================================================
+
+services:
+  # ---------- Database utama ----------
+  database:
+    image: postgres:17-alpine
+    container_name: directus-db
+    restart: unless-stopped
+    volumes:
+      - ./data/database:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_DATABASE}
+    healthcheck:
+      test: ["CMD", "pg_isready", "--host=localhost", "--username=${DB_USER}", "--dbname=${DB_DATABASE}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ---------- Cache (mempercepat API) ----------
+  cache:
+    image: redis:7-alpine
+    container_name: directus-cache
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "[ $$(redis-cli ping) = 'PONG' ]"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------- Aplikasi Directus ----------
+  directus:
+    image: directus/directus:${DIRECTUS_VERSION:-12.4.1}
+    container_name: directus-app
+    restart: unless-stopped
+    # Hanya bisa diakses dari server itu sendiri; publik masuk lewat Nginx (HTTPS)
+    ports:
+      - "127.0.0.1:${DIRECTUS_PORT:-8055}:8055"
+    volumes:
+      - ./uploads:/directus/uploads
+      - ./extensions:/directus/extensions
+    depends_on:
+      database:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    environment:
+      # --- Keamanan ---
+      SECRET: ${SECRET}
+
+      # --- Database ---
+      DB_CLIENT: "pg"
+      DB_HOST: "database"
+      DB_PORT: "5432"
+      DB_DATABASE: ${DB_DATABASE}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      # --- Cache & rate limit (Redis) ---
+      CACHE_ENABLED: "true"
+      CACHE_AUTO_PURGE: "true"
+      CACHE_STORE: "redis"
+      REDIS: "redis://cache:6379"
+
+      # --- Akun admin pertama (hanya dipakai saat instalasi awal) ---
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+
+      # --- URL publik & fitur ---
+      PUBLIC_URL: ${PUBLIC_URL}
+      WEBSOCKETS_ENABLED: "true"
+      CORS_ENABLED: "true"
+      CORS_ORIGIN: ${CORS_ORIGIN:-true}
+
+      # --- Batas upload file ---
+      FILES_MAX_UPLOAD_SIZE: ${FILES_MAX_UPLOAD_SIZE:-100mb}
+
+      # --- Lisensi (opsional, untuk fitur berbayar Directus 12) ---
+      LICENSE_KEY: ${LICENSE_KEY:-}
+
+      # --- Email (opsional, untuk reset password & undangan user) ---
+      EMAIL_TRANSPORT: ${EMAIL_TRANSPORT:-sendmail}
+      EMAIL_FROM: ${EMAIL_FROM:-no-reply@asqara.tech}
+      EMAIL_SMTP_HOST: ${EMAIL_SMTP_HOST:-}
+      EMAIL_SMTP_PORT: ${EMAIL_SMTP_PORT:-587}
+      EMAIL_SMTP_USER: ${EMAIL_SMTP_USER:-}
+      EMAIL_SMTP_PASSWORD: ${EMAIL_SMTP_PASSWORD:-}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8055/server/ping || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
