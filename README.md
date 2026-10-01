@@ -31,8 +31,10 @@
 | Nama | NIM | Peran |
 |---|---|---|
 | Alfath Asqar Tsani | M0403241019 | Instalasi server & deployment |
-| _Nama Anggota 2_ | _G64xxxxxxx_ | Dokumentasi & konten |
-| _Nama Anggota 3_ | _G64xxxxxxx_ | Pembahasan & perbandingan |
+| Dzaky Abyan | M0403241023 | Dokumentasi & konten |
+| Najma Lathifah Tsaqib | M0403241024 | Pembahasan & perbandingan |
+| M Revandi Aridya Pohan | M0403241077 | Pembahasan & perbandingan |
+| M Irfan Daniswara | M0403241091 | Pembahasan & perbandingan |
 
 ---
 
